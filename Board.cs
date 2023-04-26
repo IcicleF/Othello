@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -30,8 +31,27 @@ namespace Othello
             };
         }
 
+        internal static (sbyte x, sbyte y) ToXYCoord(sbyte compressed)
+        {
+            return ((sbyte)(compressed / 8), (sbyte)(compressed % 8));
+        }
+
+        internal static (sbyte x, sbyte y) ToXYCoord(ulong onehot)
+        {
+            return ToXYCoord((sbyte)BitOperations.TrailingZeroCount(onehot));
+        }
+
+        internal static sbyte OneHotToCompressed(ulong onehot)
+        {
+            return (sbyte)BitOperations.TrailingZeroCount(onehot);
+        }
+
         ulong[] b = new ulong[2];
-        bool player = true;
+        sbyte steps = 0;
+        bool player
+        {
+            get { return steps % 2 == 0; }
+        }
 
         public Board()
         {
@@ -47,8 +67,13 @@ namespace Othello
             var clone = new Board();
             clone.b[0] = b[0];
             clone.b[1] = b[1];
-            clone.player = player;
+            clone.steps = steps;
             return clone;
+        }
+
+        public int GetStep()
+        {
+            return steps;
         }
 
         private void SetCell(sbyte x, sbyte y, sbyte color)
@@ -97,7 +122,7 @@ namespace Othello
         public void Play(sbyte x, sbyte y)
         {
             var color = GetCurrentColor();
-            player = !player;
+            steps++;
 
             SetCell(x, y, color);
             foreach ((sbyte dx, sbyte dy) in offsets) {
@@ -109,7 +134,7 @@ namespace Othello
         /// <summary>
         /// Make the current player skip his move.
         /// </summary>
-        public void Pass() => player = !player;
+        public void Pass() => steps++;
 
         public (int empty, int white, int black) Count()
         {
@@ -166,5 +191,7 @@ namespace Othello
         }
 
         public ulong GetCurrentValidPositions() => GetValidPositions(GetCurrentColor());
+
+        public bool IsTerminal() => GetValidPositions(White) == 0 && GetValidPositions(Black) == 0;
     }
 }

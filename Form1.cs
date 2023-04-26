@@ -53,7 +53,7 @@ namespace Othello
                     boardButtons[i, j].Name = "btnCell_" + i.ToString() + j.ToString();
                     boardButtons[i, j].Size = new Size(SIZE, SIZE);
                     boardButtons[i, j].Tag = (i, j);
-                    boardButtons[i, j].Click += new System.EventHandler(BoardButtonClick);
+                    boardButtons[i, j].Click += BoardButtonClick;
                     boardButtons[i, j].Font = new System.Drawing.Font("Microsoft YaHei UI", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
                     grpBoard.Controls.Add(boardButtons[i, j]);
                 }
@@ -61,7 +61,7 @@ namespace Othello
             RenderUI();
         }
 
-        private void BoardButtonClick(object sender, EventArgs e)
+        private void BoardButtonClick(object? sender, EventArgs e)
         {
             if (sender != null)
             {
@@ -76,11 +76,73 @@ namespace Othello
                 boards.Add(newBoard);
 
                 RenderUI();
+                Task.Run(() => RestartAI());
+            }
+        }
+
+        delegate void SetAIProgressBar(int value);
+
+        private void RestartAI()
+        {
+            Board b = board.Clone();
+            if (prgAI.InvokeRequired)
+            {
+                while (!prgAI.IsHandleCreated)
+                {
+                    if (prgAI.Disposing || prgAI.IsDisposed)
+                        return;
+                }
+                SetAIProgressBar d = new SetAIProgressBar((int value) => prgAI.Value = value);
+                prgAI.Invoke(d, 0);
+            }
+            else
+            {
+                prgAI.Value = 0;
+            }
+
+            const int BATCH = 100;
+            int AITime = hScrollBarAITime.Value * 1000;
+            var startTime = DateTime.Now;
+            while (true)
+            {
+                var elapsed = DateTime.Now - startTime;
+                var elapsedPercentage = (int)(100.0 * elapsed.TotalMilliseconds / AITime);
+                if (elapsedPercentage >= 100)
+                    elapsedPercentage = 100;
+
+                // Update progress bar
+                if (prgAI.InvokeRequired)
+                {
+                    while (!prgAI.IsHandleCreated)
+                    {
+                        if (prgAI.Disposing || prgAI.IsDisposed)
+                            return;
+                    }
+                    SetAIProgressBar d = new((int value) => prgAI.Value = value);
+                    prgAI.Invoke(d, elapsedPercentage);
+                }
+                else
+                {
+                    prgAI.Value = elapsedPercentage;
+                }
+
+                if (elapsedPercentage == 100)
+                    break;
+
+                // Do MCTS search
+                // TODO
+
+
+                // Check whether UI has been updated
+                if (board.GetStep() != b.GetStep())
+                    break;
             }
         }
 
         private void RenderUI()
         {
+            lblAITime.Text = hScrollBarAITime.Value.ToString();
+
             var valid = board.GetCurrentValidPositions();
             for (sbyte i = 0; i < 8; i++)
             {
@@ -121,6 +183,7 @@ namespace Othello
                     MessageBox.Show("No possible moves, finish!", "End of the game", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
+            this.Focus();
         }
 
         private void lstHistory_MouseDoubleClick(object sender, MouseEventArgs e)
@@ -139,6 +202,11 @@ namespace Othello
                     RenderUI();
                 }
             }
+        }
+
+        private void hScrollBarComputeTime_Scroll(object sender, ScrollEventArgs e)
+        {
+            lblAITime.Text = hScrollBarAITime.Value.ToString();
         }
     }
 }
